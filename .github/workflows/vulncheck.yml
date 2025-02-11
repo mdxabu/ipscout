@@ -1,0 +1,63 @@
+name: Vulnerability Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  vulncheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up Go environment
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.23.2' 
+
+      # Install govulncheck
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      # Run govulncheck to find vulnerabilities
+      - name: Run govulncheck
+        id: vulnscan
+        run: |
+          govulncheck ./... > vuln_report.txt
+          cat vuln_report.txt
+
+      # Upload the vulnerability report as an artifact
+      - name: Upload vulnerability report
+        uses: actions/upload-artifact@v2
+        with:
+          name: vulnerability-report
+          path: vuln_report.txt
+
+      # Create a GitHub comment with the vulnerability summary
+      - name: Post vulnerability summary
+        run: |
+          if [ -s vuln_report.txt ]; then
+            echo "## Vulnerabilities Found" >> summary.md
+            cat vuln_report.txt >> summary.md
+            echo "::set-output name=summary::$(cat summary.md)"
+          else
+            echo "No vulnerabilities found" >> summary.md
+            echo "::set-output name=summary::No vulnerabilities found"
+          fi
+
+      - name: Comment on PR or push with summary
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: |
+          echo "Posting vulnerability summary"
+          curl -H "Authorization: token ${{ secrets.TOKEN }}" \
+            -X POST \
+            -d "{\"body\": \"$(cat summary.md)\"}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
