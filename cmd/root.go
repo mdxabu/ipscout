@@ -16,7 +16,7 @@ var rootCmd = &cobra.Command{
 	Long: `ipscout is a tool to get the geo location of the ip address.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-        fmt.Println("Welcome to ipscout!\n")
+        fmt.Println("Welcome to ipscout! Use 'ipscout --help' to see available commands.")
     },
 	
   }
