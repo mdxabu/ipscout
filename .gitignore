@@ -14,7 +14,7 @@ DBIPV6
 *.so
 *.dylib
 ipscout
-ipscoutconfig.json
+ipscoutconfig.yaml
 
 # Test binary, built with `go test -c`
 *.test

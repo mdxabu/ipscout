@@ -1,61 +1,83 @@
-/*
-Copyright © 2024 @mdxabu
-*/
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"net"
 	"os"
-
+	"gopkg.in/yaml.v3"
 	"github.com/spf13/cobra"
 )
-
 
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the ipscout configuration",
-	Long: `Initialize the ipscout configuration. This command creates a configuration file in the user's desired directory.`,
+	Long:  `Initialize the ipscout configuration file with auto IP detection.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		configFilePath := "ipscoutconfig.json"
+		configFilePath := "ipscoutconfig.yaml"
 
-		// Check if the configuration file already exists
 		if _, err := os.Stat(configFilePath); err == nil {
 			fmt.Printf("Configuration file '%s' already exists.\n", configFilePath)
 			return
-		} else if !os.IsNotExist(err) {
-			// If the error is not due to the file not existing, log it
-			fmt.Println("Error checking configuration file:", err)
+		}
+
+		fmt.Println("Creating YAML configuration file...")
+
+		hostname, err := os.Hostname()
+		if err != nil {
+			fmt.Println("Error getting hostname:", err)
 			return
 		}
 
-		// Proceed to create the configuration file
-		fmt.Println("Creating the configuration file...")
+		addresses, _ := net.LookupIP(hostname)
 
-		// Define the configuration structure
+		interfaces, err := net.Interfaces()
+		if err != nil {
+			fmt.Println("Error getting network interfaces:", err)
+			return
+		}
+
+		ipv4 := ""
+		ipv6 := ""
+
+		for _, addr := range addresses {
+			if addr.To4() != nil {
+				ipv4 = addr.String()
+			} else if addr.To16() != nil {
+				ipv6 = addr.String()
+			}
+		}
+
 		config := map[string]interface{}{
+			"hostname": hostname,
 			"ipv4": map[string]interface{}{
-				"enabled": true,
-				"prefix":  "// IPv4 Address",
+				"enabled": ipv4 != "",
+				"address": ipv4,
 			},
 			"ipv6": map[string]interface{}{
-				"enabled": false,
-				"prefix":  "// IPv6 Address",
+				"enabled": ipv6 != "",
+				"address": ipv6,
 			},
-			"logging": map[string]interface{}{
-				"level":  "info",
-				"format": "json",
-			},
+			"network_interfaces": []map[string]interface{}{},
 		}
 
-		// Marshal the config to JSON
-		configData, err := json.MarshalIndent(config, "", "\t")
+		for _, iface := range interfaces {
+			addrs, _ := iface.Addrs()
+			interfaceInfo := map[string]interface{}{
+				"name":      iface.Name,
+				"addresses": []string{},
+			}
+			for _, addr := range addrs {
+				interfaceInfo["addresses"] = append(interfaceInfo["addresses"].([]string), addr.String())
+			}
+			config["network_interfaces"] = append(config["network_interfaces"].([]map[string]interface{}), interfaceInfo)
+		}
+
+		configData, err := yaml.Marshal(config)
 		if err != nil {
-			fmt.Println("Error marshalling config:", err)
+			fmt.Println("Error marshaling YAML:", err)
 			return
 		}
 
-		// Create the configuration file
 		configFile, err := os.Create(configFilePath)
 		if err != nil {
 			fmt.Println("Error creating config file:", err)
@@ -63,17 +85,14 @@ var initCmd = &cobra.Command{
 		}
 		defer configFile.Close()
 
-		// Write the JSON data to the file
 		if _, err := configFile.Write(configData); err != nil {
 			fmt.Println("Error writing to config file:", err)
 			return
 		}
 
-		fmt.Printf("✓ Configuration file '%s' created successfully.\n", configFilePath)
+		fmt.Printf("✓ Configuration file '%s' created with IP addresses.\n", configFilePath)
 	},
 }
-
-
 
 func init() {
 	rootCmd.AddCommand(initCmd)
