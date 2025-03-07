@@ -1,3 +1,6 @@
+/*
+Copyright © 2025 @mdxabu
+*/
 package cmd
 
 import (
