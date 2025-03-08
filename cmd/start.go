@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/mdxabu/ipscout/core"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +15,21 @@ var startCmd = &cobra.Command{
 	Long: `Command to start the ipscout process. This command will start the ipscout process and begin monitoring the network.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Process started, This may take a few seconds to start monitoring the network.")
+		ipv4, ipv6 , err := core.FetchYaml()
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		useIPv4, _ := cmd.Flags().GetBool("ipv4")
+		useIPv6, _ := cmd.Flags().GetBool("ipv6")
+		
+		if useIPv4 {
+			fmt.Println("IPv4 Address:", ipv4)
+		} else if useIPv6 {
+			fmt.Println("IPv6 Address:", ipv6)
+		} else {
+			fmt.Println("No specific flag provided. Use --ipv4 or --ipv6")
+		}
 	},
 }
 

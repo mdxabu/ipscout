@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+
 	"gopkg.in/yaml.v3"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +15,7 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the ipscout configuration",
-	Long:  `Initialize the ipscout configuration file with auto IP detection.`,
+	Long:  `Initialize the ipscout configuration file with Wi-Fi IP detection.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		configFilePath := "ipscoutconfig.yaml"
 
@@ -25,75 +26,69 @@ var initCmd = &cobra.Command{
 
 		fmt.Println("Creating YAML configuration file...")
 
-		hostname, err := os.Hostname()
-		if err != nil {
-			fmt.Println("Error getting hostname:", err)
-			return
-		}
-
-		addresses, _ := net.LookupIP(hostname)
-
+		// Get network interfaces
 		interfaces, err := net.Interfaces()
 		if err != nil {
 			fmt.Println("Error getting network interfaces:", err)
 			return
 		}
 
-		ipv4 := ""
-		ipv6 := ""
+		var wifiInterface *net.Interface
+		for _, iface := range interfaces {
+			if iface.Flags&net.FlagUp != 0 && (iface.Name == "Wi-Fi" || iface.Name == "wlan0") {
+				wifiInterface = &iface
+				break
+			}
+		}
 
-		for _, addr := range addresses {
-			if addr.To4() != nil {
-				ipv4 = addr.String()
-			} else if addr.To16() != nil {
-				ipv6 = addr.String()
+		if wifiInterface == nil {
+			fmt.Println("No Wi-Fi interface detected.")
+			return
+		}
+
+		// Extract Wi-Fi IPs
+		var ipv4, ipv6 string
+		addrs, err := wifiInterface.Addrs()
+		if err != nil {
+			fmt.Printf("Error getting addresses for interface %s: %v\n", wifiInterface.Name, err)
+			return
+		}
+
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err != nil {
+				continue
+			}
+			if ip.To4() != nil {
+				ipv4 = ip.String()
+			} else if ip.To16() != nil {
+				ipv6 = ip.String()
 			}
 		}
 
 		config := map[string]interface{}{
-			"hostname": hostname,
-			"ipv4": map[string]interface{}{
-				"enabled": ipv4 != "",
-				"address": ipv4,
+			"wifi": map[string]interface{}{
+				"name": wifiInterface.Name,
+				"ipv4": ipv4,
+				"ipv6": ipv6,
 			},
-			"ipv6": map[string]interface{}{
-				"enabled": ipv6 != "",
-				"address": ipv6,
-			},
-			"network_interfaces": []map[string]interface{}{},
 		}
 
-		for _, iface := range interfaces {
-			addrs, _ := iface.Addrs()
-			interfaceInfo := map[string]interface{}{
-				"name":      iface.Name,
-				"addresses": []string{},
-			}
-			for _, addr := range addrs {
-				interfaceInfo["addresses"] = append(interfaceInfo["addresses"].([]string), addr.String())
-			}
-			config["network_interfaces"] = append(config["network_interfaces"].([]map[string]interface{}), interfaceInfo)
-		}
-
+		// Convert to YAML
 		configData, err := yaml.Marshal(config)
 		if err != nil {
 			fmt.Println("Error marshaling YAML:", err)
 			return
 		}
 
-		configFile, err := os.Create(configFilePath)
+		// Save to file
+		err = os.WriteFile(configFilePath, configData, 0644)
 		if err != nil {
-			fmt.Println("Error creating config file:", err)
-			return
-		}
-		defer configFile.Close()
-
-		if _, err := configFile.Write(configData); err != nil {
 			fmt.Println("Error writing to config file:", err)
 			return
 		}
 
-		fmt.Printf("✓ Configuration file '%s' created with IP addresses.\n", configFilePath)
+		fmt.Printf("✓ Configuration file '%s' created successfully with Wi-Fi details.\n", configFilePath)
 	},
 }
 
