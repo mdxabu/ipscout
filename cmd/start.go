@@ -22,13 +22,18 @@ var startCmd = &cobra.Command{
 
 		useIPv4, _ := cmd.Flags().GetBool("ipv4")
 		useIPv6, _ := cmd.Flags().GetBool("ipv6")
-		
+
 		if useIPv4 {
 			fmt.Println("IPv4 Address:", ipv4)
-		} else if useIPv6 {
+		} 
+		if useIPv6 {
 			fmt.Println("IPv6 Address:", ipv6)
-		} else {
-			fmt.Println("No specific flag provided. Use --ipv4 or --ipv6")
+		} 
+
+
+		if !useIPv4 && !useIPv6 {
+			fmt.Println("IPv4 Address:", ipv4)
+			fmt.Println("IPv6 Address:", ipv6)
 		}
 	},
 }
