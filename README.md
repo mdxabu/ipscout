@@ -1,7 +1,8 @@
 # IpScout
+IpScout is a command-line tool written in Go designed to track and log IP addresses. 
 
-## Overview
-IpScout is a command-line tool written in Go designed to track and log IP addresses. This tool can be used for various purposes such as monitoring network traffic, identifying unauthorized access, and gathering data for analysis.
+[![GoDoc](https://godoc.org/github.com/mxabu/ipscout?status.svg)](https://godoc.org/github.com/mdxabu/ipscout)
+
 
 ## Contributing
 We welcome contributions to the IpScout project. If you would like to contribute, please follow these steps:
