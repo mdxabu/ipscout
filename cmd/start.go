@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/mdxabu/ipscout/core"
+	"github.com/google/gopacket/pcap"
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +23,29 @@ var startCmd = &cobra.Command{
 
 		if useMonitor {
 			fmt.Println("Starting packet sniffing...")
-			core.StartPacketSniffing(useIPv4, useIPv6)
+			
+			// Get active network interfaces
+			devices, err := pcap.FindAllDevs()
+			if err != nil {
+				fmt.Println("Error finding network devices:", err)
+				return
+			}
+
+			var activeDevice string
+			for _, device := range devices {
+				if len(device.Addresses) > 0 {
+					activeDevice = device.Name
+					break
+				}
+			}
+
+			if activeDevice == "" {
+				fmt.Println("No active network interfaces found.")
+				return
+			}
+
+			fmt.Println("Using device:", activeDevice)
+			core.StartPacketSniffing(activeDevice, useIPv4, useIPv6)
 		} else {
 			fmt.Println("Monitoring not enabled. Use --monitor flag to start packet sniffing.")
 		}
