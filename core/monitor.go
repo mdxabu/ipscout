@@ -2,8 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -72,37 +70,46 @@ func getGeoInfo(ip string) GeoInfo {
 	return info
 }
 
+func printTableHeader(ipv6 bool) {
+	// Use logger's table header
+	LogNetworkEventHeader()
+}
+
+func printTableRow(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto string, ipv6 bool) {
+	// Use logger's table row
+	LogNetworkEvent(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto)
+}
+
 func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filterSrcIP string) {
-	handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
-	if err != nil {
-		log.Fatalf("Error opening device %s: %v", interfaceName, err)
-	}
-	defer handle.Close()
-
-	fmt.Printf("Sniffing on interface: %s\n", interfaceName)
+	Info("Sniffing on interface: %s", interfaceName)
 	if !useIPv4 && !useIPv6 {
-		fmt.Println("Warning: Neither IPv4 nor IPv6 flag set, capturing all packets.")
+		Warn("Neither IPv4 nor IPv6 flag set, capturing all packets.")
 	}
 
-	_, err = getInterfaceIPs(interfaceName)
-	if err != nil {
-		fmt.Println("Warning: Could not get local IPs for interface:", err)
-	}
-
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	packetSource := gopacket.NewPacketSource(
+		func() *pcap.Handle {
+			handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
+			if err != nil {
+				Error("Error opening device %s: %v", interfaceName, err)
+				// Optionally: os.Exit(1)
+			}
+			return handle
+		}(),
+		layers.LinkTypeEthernet,
+	)
 	packetChan := packetSource.Packets()
 
 	lastPacket := time.Now()
 	timeout := 10 * time.Second
 
-	fmt.Printf("%-40s %-16s %-24s %-40s %-16s %-24s %-8s\n", "Sender Name", "Sender IP", "Sender Location", "Receiver Name", "Receiver IP", "Receiver Location", "Proto")
-	fmt.Printf("%s\n", strings.Repeat("-", 40+16+24+40+16+24+8+6))
+	headerPrintedV4 := false
+	headerPrintedV6 := false
 
 	for {
 		select {
 		case packet, ok := <-packetChan:
 			if !ok {
-				fmt.Println("Packet source closed.")
+				Warn("Packet source closed.")
 				return
 			}
 			lastPacket = time.Now()
@@ -139,11 +146,19 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 			}
 
 			if isIPv4 {
+				if !headerPrintedV4 {
+					printTableHeader(false)
+					headerPrintedV4 = true
+				}
 				if icmpLayer := packet.Layer(layers.LayerTypeICMPv4); icmpLayer != nil {
 					isICMP = true
 					proto = "ICMP"
 				}
 			} else if isIPv6 {
+				if !headerPrintedV6 {
+					printTableHeader(true)
+					headerPrintedV6 = true
+				}
 				if icmpLayer := packet.Layer(layers.LayerTypeICMPv6); icmpLayer != nil {
 					isICMP = true
 					proto = "ICMP"
@@ -167,18 +182,15 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 
 			srcHost := resolveHost(srcIP)
 			dstHost := resolveHost(dstIP)
-
 			srcGeo := getGeoInfo(srcIP)
 			dstGeo := getGeoInfo(dstIP)
-			srcLoc := fmt.Sprintf("%s, %s", srcGeo.Country, srcGeo.City)
-			dstLoc := fmt.Sprintf("%s, %s", dstGeo.Country, dstGeo.City)
+			srcLoc := srcGeo.Country + ", " + srcGeo.City
+			dstLoc := dstGeo.Country + ", " + dstGeo.City
 
-			fmt.Printf("%-40s %-16s %-24s %-40s %-16s %-24s %-8s\n",
-				srcHost, srcIP, srcLoc, dstHost, dstIP, dstLoc, proto,
-			)
+			printTableRow(srcHost, srcIP, srcLoc, dstHost, dstIP, dstLoc, proto, isIPv6)
 		default:
 			if time.Since(lastPacket) > timeout {
-				fmt.Println("No packets captured in the last 10 seconds. Are you using the correct interface? Try running as administrator.")
+				Warn("No packets captured in the last 10 seconds. Are you using the correct interface? Try running as administrator.")
 				lastPacket = time.Now()
 			}
 			time.Sleep(500 * time.Millisecond)
