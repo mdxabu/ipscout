@@ -8,8 +8,8 @@ import (
 	"net"
 	"os"
 
-	"gopkg.in/yaml.v3"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var initCmd = &cobra.Command{
@@ -26,7 +26,6 @@ var initCmd = &cobra.Command{
 
 		fmt.Println("Creating YAML configuration file...")
 
-		// Get network interfaces
 		interfaces, err := net.Interfaces()
 		if err != nil {
 			fmt.Println("Error getting network interfaces:", err)
@@ -46,7 +45,6 @@ var initCmd = &cobra.Command{
 			return
 		}
 
-		// Extract Wi-Fi IPs
 		var ipv4, ipv6 string
 		addrs, err := wifiInterface.Addrs()
 		if err != nil {
@@ -59,12 +57,16 @@ var initCmd = &cobra.Command{
 			if err != nil {
 				continue
 			}
-			if ip.To4() != nil {
+			if ip.To4() != nil && ipv4 == "" {
 				ipv4 = ip.String()
-			} else if ip.To16() != nil {
+			} else if ip.To16() != nil && ipv6 == "" && ip.To4() == nil {
 				ipv6 = ip.String()
 			}
 		}
+
+		fmt.Printf("Detected Wi-Fi interface: %s\n", wifiInterface.Name)
+		fmt.Printf("IPv4: %s\n", ipv4)
+		fmt.Printf("IPv6: %s\n", ipv6)
 
 		config := map[string]interface{}{
 			"wifi": map[string]interface{}{
@@ -74,14 +76,12 @@ var initCmd = &cobra.Command{
 			},
 		}
 
-		// Convert to YAML
 		configData, err := yaml.Marshal(config)
 		if err != nil {
 			fmt.Println("Error marshaling YAML:", err)
 			return
 		}
 
-		// Save to file
 		err = os.WriteFile(configFilePath, configData, 0644)
 		if err != nil {
 			fmt.Println("Error writing to config file:", err)
