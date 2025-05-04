@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
@@ -49,10 +50,16 @@ func Debug(format string, a ...interface{}) {
 	logMessage("DEBUG", color.New(color.FgCyan), format, a...)
 }
 
+// Configure a more terminal-like display with wider padding
+func getTableWriter() *tabwriter.Writer {
+	return tabwriter.NewWriter(os.Stdout, 0, 0, 6, ' ', 0)
+}
+
+// Terminal UI colors
 var (
-	// Enhanced colors with bold for better visibility
-	senderColor   = color.New(color.FgCyan, color.Bold)
-	receiverColor = color.New(color.FgGreen, color.Bold)
+	headerStyle   = color.New(color.Bold, color.FgHiWhite).SprintFunc()
+	senderColor   = color.New(color.FgCyan)
+	receiverColor = color.New(color.FgGreen)
 	protoColors   = map[string]*color.Color{
 		"ICMP": color.New(color.FgMagenta, color.Bold),
 		"TCP":  color.New(color.FgBlue, color.Bold),
@@ -60,18 +67,20 @@ var (
 	}
 )
 
-// Redefine how network events are displayed
-var tableWriter *tabwriter.Writer
-
-func initTableWriter() {
-	if tableWriter == nil {
-		tableWriter = tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+func wrapText(text string, limit int) string {
+	if utf8.RuneCountInString(text) <= limit {
+		return text
 	}
-}
-
-// Initialize and configure a tabwriter for table output
-func getTableWriter() *tabwriter.Writer {
-	return tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+	runes := []rune(text)
+	var lines []string
+	for i := 0; i < len(runes); i += limit {
+		end := i + limit
+		if end > len(runes) {
+			end = len(runes)
+		}
+		lines = append(lines, string(runes[i:end]))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func LogNetworkEventIPv4(
@@ -85,17 +94,20 @@ func LogNetworkEventIPv4(
 	}
 
 	w := getTableWriter()
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		senderColor.Sprintf("%-22s", senderName),
+
+	senderNameWrapped := wrapText(senderName, 30)
+	receiverNameWrapped := wrapText(receiverName, 30)
+
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		senderColor.Sprintf("%-30s", senderNameWrapped),
 		senderColor.Sprintf("%-20s", senderIP),
-		senderColor.Sprintf("%-38s", senderLocation),
-		receiverColor.Sprintf("%-22s", receiverName),
+		receiverColor.Sprintf("%-30s", receiverNameWrapped),
 		receiverColor.Sprintf("%-20s", receiverIP),
-		receiverColor.Sprintf("%-38s", receiverLocation),
 		protoColor.Sprintf("%-10s", protocol),
 	)
 	w.Flush()
 }
+
 
 func LogNetworkEventIPv6(
 	senderName, senderIP, senderLocation string,
@@ -108,72 +120,39 @@ func LogNetworkEventIPv6(
 	}
 
 	w := getTableWriter()
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		senderColor.Sprintf("%-22s", senderName),
-		senderColor.Sprintf("%-46s", senderIP),
-		senderColor.Sprintf("%-42s", senderLocation),
-		receiverColor.Sprintf("%-22s", receiverName),
-		receiverColor.Sprintf("%-46s", receiverIP),
-		receiverColor.Sprintf("%-42s", receiverLocation),
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		senderColor.Sprintf("%-30s", senderName),
+		senderColor.Sprintf("%-45s", senderIP),
+		receiverColor.Sprintf("%-30s", receiverName),
+		receiverColor.Sprintf("%-45s", receiverIP),
 		protoColor.Sprintf("%-10s", protocol),
 	)
 	w.Flush()
 }
 
+
 func LogNetworkEventHeaderIPv4() {
-	headerStyle := color.New(color.Bold, color.FgHiWhite).SprintFunc()
-
 	w := getTableWriter()
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		headerStyle("Sender Name"),
-		headerStyle("Sender IP"),
-		headerStyle("Sender Location"),
-		headerStyle("Receiver Name"),
-		headerStyle("Receiver IP"),
-		headerStyle("Receiver Location"),
-		headerStyle("Protocol"),
-	)
-	w.Flush()
-
-	// Print underlines for headers
-	w = getTableWriter()
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		strings.Repeat("-", 22),
-		strings.Repeat("-", 20),
-		strings.Repeat("-", 38),
-		strings.Repeat("-", 22),
-		strings.Repeat("-", 20),
-		strings.Repeat("-", 38),
-		strings.Repeat("-", 10),
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		headerStyle(fmt.Sprintf("%-30s", "SENDER_NAME")),
+		headerStyle(fmt.Sprintf("%-45s", "SENDER_IP")),
+		headerStyle(fmt.Sprintf("%-30s", "RECEIVER_NAME")),
+		headerStyle(fmt.Sprintf("%-45s", "RECEIVER_IP")),
+		headerStyle(fmt.Sprintf("%-10s", "PROTOCOL")),
 	)
 	w.Flush()
 }
+
 
 func LogNetworkEventHeaderIPv6() {
-	headerStyle := color.New(color.Bold, color.FgHiWhite).SprintFunc()
-
 	w := getTableWriter()
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		headerStyle("Sender Name"),
-		headerStyle("Sender IP"),
-		headerStyle("Sender Location"),
-		headerStyle("Receiver Name"),
-		headerStyle("Receiver IP"),
-		headerStyle("Receiver Location"),
-		headerStyle("Protocol"),
-	)
-	w.Flush()
-
-	// Print underlines for headers
-	w = getTableWriter()
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		strings.Repeat("-", 22),
-		strings.Repeat("-", 46),
-		strings.Repeat("-", 42),
-		strings.Repeat("-", 22),
-		strings.Repeat("-", 46),
-		strings.Repeat("-", 42),
-		strings.Repeat("-", 10),
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		headerStyle(fmt.Sprintf("%-30s", "SENDER_NAME")),
+		headerStyle(fmt.Sprintf("%-45s", "SENDER_IP")),
+		headerStyle(fmt.Sprintf("%-30s", "RECEIVER_NAME")),
+		headerStyle(fmt.Sprintf("%-45s", "RECEIVER_IP")),
+		headerStyle(fmt.Sprintf("%-10s", "PROTOCOL")),
 	)
 	w.Flush()
 }
+
