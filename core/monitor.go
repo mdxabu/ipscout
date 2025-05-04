@@ -2,11 +2,15 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
+	"text/tabwriter"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -71,12 +75,10 @@ func getGeoInfo(ip string) GeoInfo {
 }
 
 func printTableHeader(ipv6 bool) {
-	// Use logger's table header
 	LogNetworkEventHeader()
 }
 
 func printTableRow(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto string, ipv6 bool) {
-	// Use logger's table row
 	LogNetworkEvent(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto)
 }
 
@@ -91,7 +93,6 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 			handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
 			if err != nil {
 				Error("Error opening device %s: %v", interfaceName, err)
-				// Optionally: os.Exit(1)
 			}
 			return handle
 		}(),
@@ -196,4 +197,37 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
+}
+
+func LogNetworkEventHeader() {
+	bold := color.New(color.Bold).SprintFunc()
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, bold("Sender Name\tSender IP\tSender Location\tReceiver Name\tReceiver IP\tReceiver Location\tProtocol"))
+	w.Flush()
+}
+
+func LogNetworkEvent(
+	senderName, senderIP, senderLocation string,
+	receiverName, receiverIP, receiverLocation string,
+	protocol string,
+) {
+	var protoColored string
+	switch protocol {
+	case "ICMP":
+		protoColored = color.New(color.FgCyan).Sprint(protocol)
+	case "TCP":
+		protoColored = color.New(color.FgGreen).Sprint(protocol)
+	case "UDP":
+		protoColored = color.New(color.FgYellow).Sprint(protocol)
+	default:
+		protoColored = color.New(color.FgMagenta).Sprint(protocol)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		senderName, senderIP, senderLocation,
+		receiverName, receiverIP, receiverLocation,
+		protoColored,
+	)
+	w.Flush()
 }
