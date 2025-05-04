@@ -50,14 +50,29 @@ func Debug(format string, a ...interface{}) {
 }
 
 var (
-	senderColor   = color.New(color.FgCyan)
-	receiverColor = color.New(color.FgGreen)
+	// Enhanced colors with bold for better visibility
+	senderColor   = color.New(color.FgCyan, color.Bold)
+	receiverColor = color.New(color.FgGreen, color.Bold)
 	protoColors   = map[string]*color.Color{
-		"ICMP": color.New(color.FgMagenta),
-		"TCP":  color.New(color.FgBlue),
-		"UDP":  color.New(color.FgYellow),
+		"ICMP": color.New(color.FgMagenta, color.Bold),
+		"TCP":  color.New(color.FgBlue, color.Bold),
+		"UDP":  color.New(color.FgYellow, color.Bold),
 	}
 )
+
+// Redefine how network events are displayed
+var tableWriter *tabwriter.Writer
+
+func initTableWriter() {
+	if tableWriter == nil {
+		tableWriter = tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	}
+}
+
+// Initialize and configure a tabwriter for table output
+func getTableWriter() *tabwriter.Writer {
+	return tabwriter.NewWriter(os.Stdout, 0, 0, 4, ' ', 0)
+}
 
 func LogNetworkEventIPv4(
 	senderName, senderIP, senderLocation string,
@@ -69,7 +84,8 @@ func LogNetworkEventIPv4(
 		protoColor = color.New(color.FgWhite)
 	}
 
-	fmt.Printf("| %s | %s | %s | %s | %s | %s | %s |\n",
+	w := getTableWriter()
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 		senderColor.Sprintf("%-22s", senderName),
 		senderColor.Sprintf("%-20s", senderIP),
 		senderColor.Sprintf("%-38s", senderLocation),
@@ -78,6 +94,7 @@ func LogNetworkEventIPv4(
 		receiverColor.Sprintf("%-38s", receiverLocation),
 		protoColor.Sprintf("%-10s", protocol),
 	)
+	w.Flush()
 }
 
 func LogNetworkEventIPv6(
@@ -90,7 +107,8 @@ func LogNetworkEventIPv6(
 		protoColor = color.New(color.FgWhite)
 	}
 
-	fmt.Printf("| %s | %s | %s | %s | %s | %s | %s |\n",
+	w := getTableWriter()
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 		senderColor.Sprintf("%-22s", senderName),
 		senderColor.Sprintf("%-46s", senderIP),
 		senderColor.Sprintf("%-42s", senderLocation),
@@ -99,24 +117,63 @@ func LogNetworkEventIPv6(
 		receiverColor.Sprintf("%-42s", receiverLocation),
 		protoColor.Sprintf("%-10s", protocol),
 	)
+	w.Flush()
 }
 
 func LogNetworkEventHeaderIPv4() {
 	headerStyle := color.New(color.Bold, color.FgHiWhite).SprintFunc()
 
-	header := "| Sender Name            | Sender IP              | Sender Location                            | Receiver Name          | Receiver IP            | Receiver Location                          | Protocol   |"
-	separator := strings.Repeat("-", len(header))
+	w := getTableWriter()
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		headerStyle("Sender Name"),
+		headerStyle("Sender IP"),
+		headerStyle("Sender Location"),
+		headerStyle("Receiver Name"),
+		headerStyle("Receiver IP"),
+		headerStyle("Receiver Location"),
+		headerStyle("Protocol"),
+	)
+	w.Flush()
 
-	fmt.Println(headerStyle(header))
-	fmt.Println(separator)
+	// Print underlines for headers
+	w = getTableWriter()
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		strings.Repeat("-", 22),
+		strings.Repeat("-", 20),
+		strings.Repeat("-", 38),
+		strings.Repeat("-", 22),
+		strings.Repeat("-", 20),
+		strings.Repeat("-", 38),
+		strings.Repeat("-", 10),
+	)
+	w.Flush()
 }
 
 func LogNetworkEventHeaderIPv6() {
 	headerStyle := color.New(color.Bold, color.FgHiWhite).SprintFunc()
 
-	header := "| Sender Name            | Sender IP                                      | Sender Location                              | Receiver Name          | Receiver IP                                    | Receiver Location                            | Protocol   |"
-	separator := strings.Repeat("-", len(header))
+	w := getTableWriter()
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		headerStyle("Sender Name"),
+		headerStyle("Sender IP"),
+		headerStyle("Sender Location"),
+		headerStyle("Receiver Name"),
+		headerStyle("Receiver IP"),
+		headerStyle("Receiver Location"),
+		headerStyle("Protocol"),
+	)
+	w.Flush()
 
-	fmt.Println(headerStyle(header))
-	fmt.Println(separator)
+	// Print underlines for headers
+	w = getTableWriter()
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		strings.Repeat("-", 22),
+		strings.Repeat("-", 46),
+		strings.Repeat("-", 42),
+		strings.Repeat("-", 22),
+		strings.Repeat("-", 46),
+		strings.Repeat("-", 42),
+		strings.Repeat("-", 10),
+	)
+	w.Flush()
 }

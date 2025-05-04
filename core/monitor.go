@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strings"
-	"text/tabwriter"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -75,11 +72,19 @@ func getGeoInfo(ip string) GeoInfo {
 }
 
 func printTableHeader(ipv6 bool) {
-	LogNetworkEventHeader()
+	if ipv6 {
+		LogNetworkEventHeaderIPv6()
+	} else {
+		LogNetworkEventHeaderIPv4()
+	}
 }
 
 func printTableRow(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto string, ipv6 bool) {
-	LogNetworkEvent(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto)
+	if ipv6 {
+		LogNetworkEventIPv6(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto)
+	} else {
+		LogNetworkEventIPv4(senderName, senderIP, senderLoc, receiverName, receiverIP, receiverLoc, proto)
+	}
 }
 
 func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filterSrcIP string) {
@@ -93,6 +98,7 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 			handle, err := pcap.OpenLive(interfaceName, 1600, true, pcap.BlockForever)
 			if err != nil {
 				Error("Error opening device %s: %v", interfaceName, err)
+				return nil
 			}
 			return handle
 		}(),
@@ -185,10 +191,14 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 			dstHost := resolveHost(dstIP)
 			srcGeo := getGeoInfo(srcIP)
 			dstGeo := getGeoInfo(dstIP)
-			srcLoc := srcGeo.Country + ", " + srcGeo.City
-			dstLoc := dstGeo.Country + ", " + dstGeo.City
+			srcLoc := fmt.Sprintf("%s, %s", srcGeo.Country, srcGeo.City)
+			dstLoc := fmt.Sprintf("%s, %s", dstGeo.Country, dstGeo.City)
 
-			printTableRow(srcHost, srcIP, srcLoc, dstHost, dstIP, dstLoc, proto, isIPv6)
+			if isIPv6 {
+				printTableRow(srcHost, srcIP, srcLoc, dstHost, dstIP, dstLoc, proto, true)
+			} else {
+				printTableRow(srcHost, srcIP, srcLoc, dstHost, dstIP, dstLoc, proto, false)
+			}
 		default:
 			if time.Since(lastPacket) > timeout {
 				Warn("No packets captured in the last 10 seconds. Are you using the correct interface? Try running as administrator.")
@@ -197,37 +207,4 @@ func StartPacketSniffing(interfaceName string, useIPv4 bool, useIPv6 bool, filte
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
-}
-
-func LogNetworkEventHeader() {
-	bold := color.New(color.Bold).SprintFunc()
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, bold("Sender Name\tSender IP\tSender Location\tReceiver Name\tReceiver IP\tReceiver Location\tProtocol"))
-	w.Flush()
-}
-
-func LogNetworkEvent(
-	senderName, senderIP, senderLocation string,
-	receiverName, receiverIP, receiverLocation string,
-	protocol string,
-) {
-	var protoColored string
-	switch protocol {
-	case "ICMP":
-		protoColored = color.New(color.FgCyan).Sprint(protocol)
-	case "TCP":
-		protoColored = color.New(color.FgGreen).Sprint(protocol)
-	case "UDP":
-		protoColored = color.New(color.FgYellow).Sprint(protocol)
-	default:
-		protoColored = color.New(color.FgMagenta).Sprint(protocol)
-	}
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-		senderName, senderIP, senderLocation,
-		receiverName, receiverIP, receiverLocation,
-		protoColored,
-	)
-	w.Flush()
 }
