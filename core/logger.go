@@ -3,10 +3,8 @@ package core
 import (
 	"fmt"
 	"os"
-	"strings"
 	"text/tabwriter"
 	"time"
-	"unicode/utf8"
 
 	"github.com/fatih/color"
 )
@@ -67,11 +65,8 @@ var (
 	}
 )
 
-func wrapText(text string, limit int) string {
-	if utf8.RuneCountInString(text) <= limit {
-		return text
-	}
-	runes := []rune(text)
+func wrapLines(s string, limit int) []string {
+	runes := []rune(s)
 	var lines []string
 	for i := 0; i < len(runes); i += limit {
 		end := i + limit
@@ -80,7 +75,7 @@ func wrapText(text string, limit int) string {
 		}
 		lines = append(lines, string(runes[i:end]))
 	}
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 func LogNetworkEventIPv4(
@@ -93,20 +88,53 @@ func LogNetworkEventIPv4(
 		protoColor = color.New(color.FgWhite)
 	}
 
+	// Wrap names to lines
+	senderLines := wrapLines(senderName, 30)
+	receiverLines := wrapLines(receiverName, 30)
+
+	// Find max lines to print all wrapped rows
+	maxLines := len(senderLines)
+	if len(receiverLines) > maxLines {
+		maxLines = len(receiverLines)
+	}
+
+	// Pad lines for consistent row count
+	for len(senderLines) < maxLines {
+		senderLines = append(senderLines, "")
+	}
+	for len(receiverLines) < maxLines {
+		receiverLines = append(receiverLines, "")
+	}
+
 	w := getTableWriter()
 
-	senderNameWrapped := wrapText(senderName, 30)
-	receiverNameWrapped := wrapText(receiverName, 30)
+	// Print each visual row with tab alignment
+	for i := 0; i < maxLines; i++ {
+		sender := senderColor.Sprintf("%-30s", senderLines[i])
+		recv := receiverColor.Sprintf("%-30s", receiverLines[i])
 
-	fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-		senderColor.Sprintf("%-30s", senderNameWrapped),
-		senderColor.Sprintf("%-20s", senderIP),
-		receiverColor.Sprintf("%-30s", receiverNameWrapped),
-		receiverColor.Sprintf("%-20s", receiverIP),
-		protoColor.Sprintf("%-10s", protocol),
-	)
+		// Only print IP and protocol on first line to align visually
+		if i == 0 {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				sender,
+				senderColor.Sprintf("%-20s", senderIP),
+				recv,
+				receiverColor.Sprintf("%-20s", receiverIP),
+				protoColor.Sprintf("%-10s", protocol),
+			)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				sender,
+				" ", // empty IP
+				recv,
+				" ", // empty IP
+				" ", // empty protocol
+			)
+		}
+	}
 	w.Flush()
 }
+
 
 
 func LogNetworkEventIPv6(
