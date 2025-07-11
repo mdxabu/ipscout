@@ -80,14 +80,16 @@ func printHeader(isIPv6 bool) {
 		cfg = ipv6Cfg
 	}
 
-	fmt.Printf("%-*s %-*s %-*s %-*s %-8s\n",
-		cfg.nameW, headerStyle("SENDER_NAME"),
-		cfg.ipW, headerStyle("SENDER_IP"),
-		cfg.nameW, headerStyle("RECEIVER_NAME"),
-		cfg.ipW, headerStyle("RECEIVER_IP"),
-		headerStyle("PROTOCOL"),
+	fmt.Printf("%-*s │ %-*s │ %-*s │ %-*s │ %-8s\n",
+	cfg.nameW, headerStyle("SENDER_NAME"),
+	cfg.ipW, headerStyle("SENDER_IP"),
+	cfg.nameW, headerStyle("RECEIVER_NAME"),
+	cfg.ipW, headerStyle("RECEIVER_IP"),
+	headerStyle("PROTOCOL"),
 	)
-	fmt.Println(strings.Repeat("-", cfg.nameW*2+cfg.ipW*2+8+4)) // simple underline
+	fmt.Println(strings.Repeat("─", cfg.nameW+cfg.ipW+cfg.nameW+cfg.ipW+8+12)) 
+
+	
 
 	if isIPv6 {
 		headerPrintedIPv6 = true
@@ -108,18 +110,17 @@ func printRow(senderName, senderIP, receiverName, receiverIP, proto string, isIP
 		cfg = ipv6Cfg
 	}
 
-	// choose protocol colour
 	pc, ok := protoColors[proto]
 	if !ok {
 		pc = color.New(color.FgWhite)
 	}
 
-	fmt.Printf("%-*s %-*s %-*s %-*s %-8s\n",
-		cfg.nameW, senderColor.Sprintf(senderName),
-		cfg.ipW, senderColor.Sprintf(senderIP),
-		cfg.nameW, receiverColor.Sprintf(receiverName),
-		cfg.ipW, receiverColor.Sprintf(receiverIP),
-		pc.Sprintf(proto),
+	fmt.Printf("%-*s │ %-*s │ %-*s │ %-*s │ %-8s\n",
+	cfg.nameW, senderColor.Sprintf(senderName),
+	cfg.ipW, senderColor.Sprintf(senderIP),
+	cfg.nameW, receiverColor.Sprintf(receiverName),
+	cfg.ipW, receiverColor.Sprintf(receiverIP),
+	pc.Sprintf(proto),
 	)
 }
 
