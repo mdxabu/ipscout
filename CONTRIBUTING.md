@@ -45,9 +45,8 @@ If you find a bug or have a feature request, please open an issue on GitHub:
    - Provide a detailed description of your changes.
    - Submit the PR for review.
 
-## Code of Conduct
 
-Please be respectful and follow our [Code of Conduct](CODE_OF_CONDUCT.md). We encourage collaboration and constructive feedback.
+
 
 ## Contact
 
